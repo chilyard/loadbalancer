@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+# cli frontend for the Netscaler REST API
+#
+
+require_relative 'apihandler.rb'
+require_relative 'configfiles.rb'
+
+
+
+
+
+
+api = LBApiHandler.new("lax")
+api.callrest
+
+
+
+
