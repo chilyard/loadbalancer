@@ -19,10 +19,12 @@ class LBApiHandler
 
     # make the call 
     def callrest
-      print "calling #{@dc}\n"
-      creds_file = File.open('apicreds.json')
-      creds_hash = JSON.parse(creds_file.to_s)
-      print "username: ", creds_hash["username"], "\n"
+      print "loading credentials\n"
+      creds_file = File.open('apicreds.json', "rb")
+      content = creds_file.read
+      creds_hash = JSON.parse(content)
+      print "username: ", creds_hash['login']['username'], "\n"
+      print "password: ", creds_hash['login']['password'], "\n"
     end 
 
 end
