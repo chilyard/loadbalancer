@@ -2,7 +2,6 @@
 # handle all the REST calls to the loadbalancer, here.
 #
 # we'll want a cli in front of this in addition to using rundeck or some other rbac gui frontend
-#
 
 require 'json'
 require '../rl_credentials/credentials.rb'
@@ -18,9 +17,12 @@ class LBApiHandler
       print "lb_url: #{lb_url}\n"
     end
 
+    def load_credentials
+    end
+
     # make the call 
     def callrest
-      print "loading credentials from ../rl_credentials/credentials.rb"
+      print "loading credentials from ../rl_credentials/credentials.rb\n"
     end 
 
 end
