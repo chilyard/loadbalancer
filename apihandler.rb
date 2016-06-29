@@ -4,8 +4,14 @@
 # we'll want a cli in front of this in addition to using rundeck or some other rbac gui frontend
 
 require 'json'
+require 'net/http'
+require 'io/console'
 require_relative '../rl_credentials/credentials.rb'
+
 include RLCredentials
+
+
+
 
 class LBApiHandler
 
@@ -13,21 +19,49 @@ class LBApiHandler
 
     # get everything setup
     def initialize(*args)
+      print "initializing LBApiHandler\n"
       @dc = args[0]
-      lb_url = "http://lb.#{dc}.reachlocal.com"     
-      print "lb_url: #{lb_url}\n"
-
-	  load_credentials
+      @lb_url = "http://lb.#{dc}.reachlocal.com"     
+      load_credentials
     end
 
     def load_credentials
-      print "loading credentials from ../rl_credentials/credentials.rb\n"
-	  rlcreds = RLCredentials.loadbalancer("lb")
+	  @username, @password = RLCredentials.loadbalancer("lb")
+      print "username: ", @username, "\n"
+      print "password: "
+      @password = STDIN.noecho(&:gets).chomp
+    end
+
+    # setup the connection
+    def http_connect
+        print "do nothin"
     end
 
     # make the call 
-    def callrest
-		print "in callrest\n"
+    def callrest_login
+        @path = "/nitro/v1/config/login/"
+        uri = URI("#{@lb_url}#{@path}")
+        @host = uri.host
+        @port = 80
+
+        @payload = { 'login' => { 'username' => "#{@username}", 'password' => "#{@password}" }}.to_json
+
+        request = Net::HTTP::Post.new(@path, initheader = {'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
+            request.basic_auth @username, @password
+            request.body = @payload
+            response = Net::HTTP.new(@host, @port).start { |http|
+                http.request(request)
+                http.request_get('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver') { |response|
+                    print response.read_body 
+                }
+            }
+         print "Response #{response.code} #{response.message}: \n"
+         print "#{response.body}"
     end 
+
+    def callrest_getstats
+        print "do nothing"
+    end
+
 
 end

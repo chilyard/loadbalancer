@@ -11,8 +11,8 @@ require_relative 'configfiles.rb'
 
 
 
-api = LBApiHandler.new("lax")
-api.callrest
+api = LBApiHandler.new("wh")
+api.callrest_login
 
 
 
