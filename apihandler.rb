@@ -34,10 +34,10 @@ class LBApiHandler
 
     # setup the connection
     def http_connect
-        print "do nothin"
+      print "nothin"
     end
 
-    # make the call 
+    # setup the login
     def callrest_login
         @path = "/nitro/v1/config/login/"
         uri = URI("#{@lb_url}#{@path}")
@@ -51,16 +51,19 @@ class LBApiHandler
             request.body = @payload
             response = Net::HTTP.new(@host, @port).start { |http|
                 http.request(request)
-                http.request_get('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver') { |response|
-                    print response.read_body 
-                }
             }
          print "Response #{response.code} #{response.message}: \n"
          print "#{response.body}"
     end 
 
+    # GET commands to the LB
     def callrest_getstats
-        print "do nothing"
+      @path = "/nitro/v1/config/lbvserver/"
+      uri = URI("#{@lb_url}#{@path}") 
+      request = Net::HTTP.get()
+        #http.request_get('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver') { |response|
+        #print response.read_body 
+      #}
     end
 
 
