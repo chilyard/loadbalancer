@@ -1,5 +1,5 @@
 
-# handle all the REST calls to the loadbalancer, here.
+# handle all the REST calls to the netscaler load balancer, here.
 #
 # we'll want a cli in front of this in addition to using rundeck or some other rbac gui frontend
 
@@ -13,11 +13,13 @@ include RLCredentials
 
 
 
-class LBApiHandler
+class NSLBApiHandler
 
     attr_reader :dc
 
     # get everything setup
+    # 
+    # we need to know which netscaler load balancer we're using
     def initialize(*args)
       print "initializing LBApiHandler\n"
       @dc = args[0]
@@ -25,36 +27,42 @@ class LBApiHandler
       load_credentials
     end
 
+
+    # if we don't have credentials supplied by the cli or rundeck, prompt the user
     def load_credentials
 	  @username, @password = RLCredentials.loadbalancer("lb")
       print "username: ", @username, "\n"
       print "password: "
       @password = STDIN.noecho(&:gets).chomp
+      print "\n"
     end
 
-    # setup the connection
+
+    # if we can use one connection for all our transactions, let's do that.  
+    # however, uncertain if the HTTP library can handle it.  may have to initiate
+    # a new connection per request
     def http_connect
       print "nothin"
     end
 
-    # setup the login
+
+    # login to the LB
     def callrest_login
-        @path = "/nitro/v1/config/login/"
-        uri = URI("#{@lb_url}#{@path}")
-        @host = uri.host
-        @port = 80
+      uri = URI('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver/')
 
-        @payload = { 'login' => { 'username' => "#{@username}", 'password' => "#{@password}" }}.to_json
+      @payload = { 'login' => { 'username' => "#{@username}", 'password' => "#{@password}" }}.to_json
+      #{'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
+        
+      request = Net::HTTP::Get.new(uri)
+      request.basic_auth "#{@username}", "#{@password}"
 
-        request = Net::HTTP::Post.new(@path, initheader = {'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
-            request.basic_auth @username, @password
-            request.body = @payload
-            response = Net::HTTP.new(@host, @port).start { |http|
-                http.request(request)
-            }
-         print "Response #{response.code} #{response.message}: \n"
-         print "#{response.body}"
+      Net::HTTP.start(uri.host, uri.port) { |http|
+            response = http.request(request)
+            puts response.body
+      }
+      request.finish
     end 
+
 
     # GET commands to the LB
     def callrest_getstats

@@ -10,8 +10,8 @@ require_relative 'configfiles.rb'
 
 
 
-
-api = LBApiHandler.new("wh")
+# setup the netscaler objects
+api = NSLBApiHandler.new("wh")
 api.callrest_login
 
 
