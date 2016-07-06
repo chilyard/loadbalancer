@@ -6,11 +6,9 @@
 require 'json'
 require 'net/http'
 require 'io/console'
-require_relative '../rl_credentials/credentials.rb'
+require_relative '../../rl_credentials/lib/credentials.rb'
 
 include RLCredentials
-
-
 
 
 class NSLBApiHandler
@@ -21,7 +19,7 @@ class NSLBApiHandler
     # 
     # we need to know which netscaler load balancer we're using
     def initialize(*args)
-      print "initializing LBApiHandler\n"
+      print "initializing NSLBApiHandler\n"
       @dc = args[0]
       @lb_url = "http://lb.#{dc}.reachlocal.com"     
       load_credentials
@@ -42,7 +40,7 @@ class NSLBApiHandler
     # however, uncertain if the HTTP library can handle it.  may have to initiate
     # a new connection per request
     def http_connect
-      print "nothin"
+      print "stub"
     end
 
 
@@ -72,6 +70,16 @@ class NSLBApiHandler
         #http.request_get('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver') { |response|
         #print response.read_body 
       #}
+    end
+
+    # create LB objects
+    def callrest_create
+        print "creating a LB object"
+    end
+
+    # delete LB objects
+    def callrest_delete
+        print "deleting a LB object"
     end
 
 

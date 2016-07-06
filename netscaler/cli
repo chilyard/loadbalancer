@@ -4,9 +4,6 @@
 #
 
 require_relative 'apihandler.rb'
-require_relative 'configfiles.rb'
-
-
 
 
 
