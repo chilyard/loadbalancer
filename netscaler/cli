@@ -10,6 +10,7 @@ require_relative 'apihandler.rb'
 # setup the netscaler objects
 api = NSLBApiHandler.new("wh")
 api.callrest_login
+api.callrest_getstats
 
 
 

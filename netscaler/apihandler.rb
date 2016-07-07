@@ -40,36 +40,34 @@ class NSLBApiHandler
     # however, uncertain if the HTTP library can handle it.  may have to initiate
     # a new connection per request
     def http_connect
+      #{'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
       print "stub"
     end
 
 
     # login to the LB
     def callrest_login
-      uri = URI('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver/')
+        print "login to LB\n" 
+        @uri = URI("http://lb.#{@dc}.reachlocal.com/nitro/v1/config/lbvserver/")
+        @request = Net::HTTP::Get.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
 
-      @payload = { 'login' => { 'username' => "#{@username}", 'password' => "#{@password}" }}.to_json
-      #{'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
-        
-      request = Net::HTTP::Get.new(uri)
-      request.basic_auth "#{@username}", "#{@password}"
-
-      Net::HTTP.start(uri.host, uri.port) { |http|
-            response = http.request(request)
-            puts response.body
-      }
-      request.finish
     end 
 
 
     # GET commands to the LB
     def callrest_getstats
-      @path = "/nitro/v1/config/lbvserver/"
-      uri = URI("#{@lb_url}#{@path}") 
-      request = Net::HTTP.get()
-        #http.request_get('http://lb.wh.reachlocal.com/nitro/v1/config/lbvserver') { |response|
-        #print response.read_body 
-      #}
+        print "get stats\n"
+        @uri = URI("http://lb.#{@dc}.reachlocal.com/nitro/v1/config/lbvserver/")
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+
+            if response.code == "200"
+                result = JSON.parse(response.body)
+                puts result
+            end
+        }
+
     end
 
     # create LB objects
