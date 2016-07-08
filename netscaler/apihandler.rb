@@ -48,7 +48,7 @@ class NSLBApiHandler
     # login to the LB
     def callrest_login
         print "login to LB\n" 
-        @uri = URI("http://lb.#{@dc}.reachlocal.com/nitro/v1/config/lbvserver/")
+        @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/lbvserver/")
         @request = Net::HTTP::Get.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
 
@@ -58,13 +58,15 @@ class NSLBApiHandler
     # GET commands to the LB
     def callrest_getstats
         print "get stats\n"
-        @uri = URI("http://lb.#{@dc}.reachlocal.com/nitro/v1/config/lbvserver/")
+        @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/lbvserver/")
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
 
             if response.code == "200"
                 result = JSON.parse(response.body)
-                puts result
+                File.open("lb.#{dc}-stats.json", "w") do |f|
+                    f.write(JSON.pretty_generate(result))
+                end
             end
         }
 
