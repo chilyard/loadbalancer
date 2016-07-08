@@ -55,8 +55,8 @@ class NSLBApiHandler
     end 
 
 
-    # GET commands to the LB
-    def callrest_getstats
+    # get a list of lb vservers
+    def callrest_getlbvstats
         print "get stats\n"
         @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/lbvserver/")
         Net::HTTP.start(@uri.host, @uri.port) { |http|
@@ -82,5 +82,25 @@ class NSLBApiHandler
         print "deleting a LB object"
     end
 
+    # save LB objects
+    def callrest_save
+        print "saving changes"
+    end
+
+    # get a list of cs vservers
+    def callrest_getcsvstats
+        print "get cs vserver stats\n"
+        @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/csvserver/")
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+
+            if response.code == "200"
+                result = JSON.parse(response.body)
+                File.open("lb.#{dc}-cs-vserver-stats.json", "w") do |f|
+                    f.write(JSON.pretty_generate(result))
+                end
+            end
+        }
+    end
 
 end
