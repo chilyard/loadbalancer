@@ -40,7 +40,6 @@ class NSLBRestHandler
     # however, uncertain if the HTTP library can handle it.  may have to initiate
     # a new connection per request
     def http_connect
-      #{'Content-Type' => 'application/vnd.com.citrix.netscaler.login+json'})
       print "stub"
     end
 
@@ -64,7 +63,7 @@ class NSLBRestHandler
 
             if response.code == "200"
                 result = JSON.parse(response.body)
-                File.open("lb.#{dc}-stats.json", "w") do |f|
+                File.open("lb.#{dc}-lbvserver-stats.json", "w") do |f|
                     f.write(JSON.pretty_generate(result))
                 end
             end
@@ -75,6 +74,9 @@ class NSLBRestHandler
     # create LB objects
     def call_rest_create
         print "creating a LB object"
+        #url.path = /nitro/v1/config/lbvserver/
+        #url.method = POST
+        #url.header = { X-NITRO-USER:#{username}, X-NITRO-PASS:#{password}, Content-Type: application/vnd.com/citrix.netscaler.lbvserver+json }
     end
 
     # delete LB objects
