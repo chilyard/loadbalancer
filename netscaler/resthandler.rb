@@ -11,7 +11,7 @@ require_relative '../../rl_credentials/lib/credentials.rb'
 include RLCredentials
 
 
-class NSLBApiHandler
+class NSLBRestHandler
 
     attr_reader :dc
 
@@ -19,7 +19,7 @@ class NSLBApiHandler
     # 
     # we need to know which netscaler load balancer we're using
     def initialize(*args)
-      print "initializing NSLBApiHandler\n"
+      print "initializing NSLBRestHandler\n"
       @dc = args[0]
       @lb_url = "http://lb.#{dc}.reachlocal.com"     
       load_credentials
@@ -46,7 +46,7 @@ class NSLBApiHandler
 
 
     # login to the LB
-    def callrest_login
+    def call_rest_login
         print "login to LB\n" 
         @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/lbvserver/")
         @request = Net::HTTP::Get.new(@uri)
@@ -56,8 +56,8 @@ class NSLBApiHandler
 
 
     # get a list of lb vservers
-    def callrest_getlbvstats
-        print "get stats\n"
+    def call_rest_getlbvstats
+        print "get lb vserver stats\n"
         @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/lbvserver/")
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
@@ -73,22 +73,22 @@ class NSLBApiHandler
     end
 
     # create LB objects
-    def callrest_create
+    def call_rest_create
         print "creating a LB object"
     end
 
     # delete LB objects
-    def callrest_delete
+    def call_rest_delete
         print "deleting a LB object"
     end
 
     # save LB objects
-    def callrest_save
+    def call_rest_save
         print "saving changes"
     end
 
     # get a list of cs vservers
-    def callrest_getcsvstats
+    def call_rest_getcsvstats
         print "get cs vserver stats\n"
         @uri = URI("http://lb.#{dc}.reachlocal.com/nitro/v1/config/csvserver/")
         Net::HTTP.start(@uri.host, @uri.port) { |http|

@@ -3,14 +3,17 @@
 # cli frontend for the Netscaler REST API
 #
 
-require_relative 'apihandler.rb'
+require_relative 'resthandler.rb'
 
 
 
 # setup the netscaler objects
-api = NSLBApiHandler.new("wh")
-api.callrest_login
-api.callrest_getlbvstats
+rest = NSLBRestHandler.new("wh")
+rest.call_rest_login
+rest.call_rest_getlbvstats
+
+# this doesn't actually pull cs vserver stats
+#rest.call_rest_getcsvstats
 
 
 
