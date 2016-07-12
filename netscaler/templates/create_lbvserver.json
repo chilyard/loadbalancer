@@ -1,0 +1,13 @@
+
+{
+    "lbvserver":
+    {
+        "name":"testlbvserver",
+        "servicetype":"http",
+        "ip":"0.0.0.0",
+        "persistencetype":"NONE",
+        "lbmethod":"LRTM",
+        "clttimeout":"1800",
+        "appflowlog":"DISABLED"
+    }
+}

@@ -23,11 +23,12 @@ class NSLBRestHandler
       @dc = args[0]
       @lb_host = "lb.#{dc}.reachlocal.com"     
       load_credentials
-      create_uri
+      build_uri
     end
 
-
-    def create_uri
+    # build the a basic uri object.  update the path locally for
+    # any functions requiring a change
+    def build_uri
         print "building uri..."
         @uri = URI::HTTP.build({
             :host       => "#{@lb_host}",
@@ -64,7 +65,6 @@ class NSLBRestHandler
         print "login to LB\n" 
         @uri.path = "/nitro/v1/config/lbvserver/"
         @request = Net::HTTP::Get.new(@uri)
-        print "code: \n"
         @request.basic_auth "#{@username}", "#{@password}"
     end 
 
@@ -87,11 +87,55 @@ class NSLBRestHandler
     end
 
     # create LB objects
-    def call_rest_create(object_type="nothing")
-        print "creating a #{object_type} LB object"
-        #url.path = /nitro/v1/config/lbvserver/
-        #url.method = POST
-        #url.header = { X-NITRO-USER:#{username}, X-NITRO-PASS:#{password}, Content-Type: application/vnd.com/citrix.netscaler.lbvserver+json }
+    def call_rest_create
+        type = "lb vserver"
+        print "creating a #{type} LB object\n"
+        @uri.path = "/nitro/v1/config/lbvserver"
+        @request.add_field('Content-Type', 'application/vnd.com/citrix.netscaler.lbvserver+json')
+        @request.body = '{
+                "lbvserver":
+                    {
+                    "name":"testlbvserver",
+                    "servicetype":"http",
+                    "ip":"0.0.0.0",
+                    "persistencetype":"NONE",
+                    "lbmethod":"LRTM",
+                    "clttimeout":"1800",
+                    "appflowlog":"DISABLED"
+                    }
+        }'
+
+
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "200"
+                    print "success!\n"
+                    call_rest_saveconfig
+                else
+                    print "fail!\n"
+                end
+        }
+                
+    end
+
+    def call_rest_saveconfig
+        print "saving config\n"
+        @uri.path = "/nitro/v1/config/nsconfig"
+        @uri.query = "action=save"
+        @request.add_field('Content-Type', 'application/vnd.com/citrix.netscaler.lbvserver+json')
+        @request.body = '{
+            "nsconfig":{}
+        }'
+
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "200"
+                    print "saved!\n"
+                else
+                    print "save failed!\n"
+                end
+        }
+
     end
 
     # delete LB objects
