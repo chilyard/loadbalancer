@@ -88,16 +88,22 @@ class NSLBRestHandler
 
     # create LB objects
     def call_rest_create
-        type = "lb vserver"
+
+        print "setting up a POST\n"
+        @uri.path = "/nitro/v1/config/lbvserver/"
+        @request = Net::HTTP::Post.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+
+        type = "lb vserver\n"
         print "creating a #{type} LB object\n"
-        @uri.path = "/nitro/v1/config/lbvserver"
-        @request.add_field('Content-Type', 'application/vnd.com/citrix.netscaler.lbvserver+json')
+        @uri.path = "/nitro/v1/config/lbvserver/"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
         @request.body = '{
                 "lbvserver":
                     {
                     "name":"testlbvserver",
                     "servicetype":"http",
-                    "ip":"0.0.0.0",
+                    "ipv46":"0.0.0.0",
                     "persistencetype":"NONE",
                     "lbmethod":"LRTM",
                     "clttimeout":"1800",
@@ -110,9 +116,29 @@ class NSLBRestHandler
             response = http.request(@request)
                 if response.code == "200"
                     print "success!\n"
-                    call_rest_saveconfig
+                    print "code: ", response.code.to_i, "\n"
                 else
                     print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+
+            # save the config
+            @uri.path = "/nitro/v1/config/nsconfig"
+            @uri.query = "action=save"
+            @request.body = '{
+                "nsconfig":
+                {
+                }
+            }'
+            saved = http.request(@request)
+
+                if saved.code == "200"
+                    print "success!\n"
+                    print "code: ", response.code.to_i, "\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
                 end
         }
                 
