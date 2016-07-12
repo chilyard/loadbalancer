@@ -12,5 +12,6 @@ rest = NSLBRestHandler.new("wh")
 rest.call_rest_login
 
 #rest.call_rest_getlbvstats
+#rest.call_rest_create("lbvserver")
 
-rest.call_rest_create("lbvserver")
+rest.call_rest_delete

@@ -17,7 +17,8 @@ class NSLBRestHandler
 
     # get everything setup
     # 
-    # we need to know which netscaler load balancer we're using
+    # handle args
+    # verify credentials
     def initialize(*args)
       print "initializing NSLBRestHandler\n"
       @dc = args[0]
@@ -26,7 +27,7 @@ class NSLBRestHandler
       build_uri
     end
 
-    # build the a basic uri object.  update the path locally for
+    # build a basic uri object.  update the path locally for
     # any functions requiring a change
     def build_uri
         print "building uri object..."
@@ -141,6 +142,29 @@ class NSLBRestHandler
     # delete LB objects
     def call_rest_delete
         print "deleting a LB object"
+            @uri.path = "/nitro/v1/config/lbvserver/testlbvserver"
+            @request = Net::HTTP::Delete.new(@uri)
+            @request.basic_auth "#{@username}", "#{@password}"
+            @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
+            @request.body = '{
+                "lbvserver":
+                    {
+                    "name":"testlbvserver",
+                    "lbmethod":"LRTM"
+                    }
+            }'
+
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "200"
+                    print "success!\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+        }
+                    
     end
 
 end
