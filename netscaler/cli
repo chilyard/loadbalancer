@@ -11,6 +11,7 @@ require_relative 'resthandler.rb'
 rest = NSLBRestHandler.new("wh")
 rest.call_rest_login
 
+#rest.call_rest_getlbvstats
 
 rest.call_rest_create
 
