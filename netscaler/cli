@@ -13,5 +13,4 @@ rest.call_rest_login
 
 #rest.call_rest_getlbvstats
 
-rest.call_rest_create
-
+rest.call_rest_create("lbvserver")

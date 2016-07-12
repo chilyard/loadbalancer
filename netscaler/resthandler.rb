@@ -29,7 +29,7 @@ class NSLBRestHandler
     # build the a basic uri object.  update the path locally for
     # any functions requiring a change
     def build_uri
-        print "building uri..."
+        print "building uri object..."
         @uri = URI::HTTP.build({
             :host       => "#{@lb_host}",
             :path       => "",
@@ -38,7 +38,6 @@ class NSLBRestHandler
             :fragment   => ""
         })
         print "done!\n"
-        print "uri: ",  @uri
     end
 
 
@@ -49,14 +48,6 @@ class NSLBRestHandler
       print "password: "
       @password = STDIN.noecho(&:gets).chomp
       print "\n"
-    end
-
-
-    # if we can use one connection for all our transactions, let's do that.  
-    # however, uncertain if the HTTP library can handle it.  may have to initiate
-    # a new connection per request
-    def http_connect
-      print "stub"
     end
 
 
@@ -78,8 +69,8 @@ class NSLBRestHandler
 
             if response.code == "200"
                 result = JSON.parse(response.body)
-                File.open("lb.#{dc}-lbvserver-stats.json", "w") do |f|
-                    f.write(JSON.pretty_generate(result))
+                File.open("lb.#{dc}-lbvserver-stats.json", "w") do |file|
+                    file.write(JSON.pretty_generate(result))
                 end
             end
         }
@@ -87,16 +78,11 @@ class NSLBRestHandler
     end
 
     # create LB objects
-    def call_rest_create
-
-        print "setting up a POST\n"
+    def call_rest_create(type="null")
+        print "creating a #{type}..."
         @uri.path = "/nitro/v1/config/lbvserver/"
         @request = Net::HTTP::Post.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
-
-        type = "lb vserver\n"
-        print "creating a #{type} LB object\n"
-        @uri.path = "/nitro/v1/config/lbvserver/"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
         @request.body = '{
                 "lbvserver":
@@ -114,64 +100,47 @@ class NSLBRestHandler
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
-                if response.code == "200"
+                if response.code == "201"
                     print "success!\n"
-                    print "code: ", response.code.to_i, "\n"
+                    call_rest_saveconfig
                 else
                     print "fail!\n"
                     print "code: ", response.code.to_i, "\n"
                     print "body: ", response.body, "\n"
                 end
-
-            # save the config
-            @uri.path = "/nitro/v1/config/nsconfig"
-            @uri.query = "action=save"
-            @request.body = '{
-                "nsconfig":
-                {
-                }
-            }'
-            saved = http.request(@request)
-
-                if saved.code == "200"
-                    print "success!\n"
-                    print "code: ", response.code.to_i, "\n"
-                else
-                    print "fail!\n"
-                    print "code: ", response.code.to_i, "\n"
-                end
         }
                 
     end
+ 
 
+    # save the config
     def call_rest_saveconfig
-        print "saving config\n"
-        @uri.path = "/nitro/v1/config/nsconfig"
-        @uri.query = "action=save"
-        @request.add_field('Content-Type', 'application/vnd.com/citrix.netscaler.lbvserver+json')
-        @request.body = '{
-            "nsconfig":{}
-        }'
+        print "saving config..."
+            @uri.path = "/nitro/v1/config/nsconfig"
+            @uri.query = "action=save"
+            @request = Net::HTTP::Post.new(@uri)
+            @request.basic_auth "#{@username}", "#{@password}"
+            @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.nsconfig+json')
+            @request.body = '{
+                "nsconfig":{}
+                }'
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
                 if response.code == "200"
-                    print "saved!\n"
+                    print "success!\n"
                 else
-                    print "save failed!\n"
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
                 end
         }
-
     end
+
 
     # delete LB objects
     def call_rest_delete
         print "deleting a LB object"
-    end
-
-    # save LB objects
-    def call_rest_save
-        print "saving changes"
     end
 
 end
