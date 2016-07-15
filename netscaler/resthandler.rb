@@ -13,14 +13,8 @@ include RLCredentials
 
 class NSLBRestHandler
 
-    attr_reader :dc 
+    attr_reader :dc
 
-    # initialization
-    #
-    # what we'll do, here:
-    # check arguments passed
-    # verify credentials against the netscaler endpoint
-    #
     # required args: 
     # dc - caller must pass the datacenter {wh, lax, iad, nrt, syd, ams}
     # env - caller must pass sdlc environment {dev, qa, stg, prod}
@@ -30,7 +24,6 @@ class NSLBRestHandler
     # optional args:
     # username - this may come from the calling source, like rundeck.  or we could prompt the user
     # password - this may come from the calling source, like rundeck.  or we could prompt the user
-    #
     def initialize(*args)
       print "initializing NSLBRestHandler\n"
       @dc = args[0]
@@ -71,10 +64,10 @@ class NSLBRestHandler
             @username = STDIN.gets.chomp
             print "password: "
             @password = STDIN.noecho(&:gets).chomp
+            print "\n"
         else
-            print "username and password already set\n"
-            print "u: ", username, "\n"
-            print "p: ", password, "\n"
+            @username = username
+            @password = password
         end
 
         # we'll want to test the credentials here by calling the rest_login
@@ -94,9 +87,9 @@ class NSLBRestHandler
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
                 if response.code == "201"
-                    print "credential check success!\n"
+                    print "success!\n"
                 else
-                    print "credential check failed!\n"
+                    print "fail!\n"
                     print JSON.parse(response.body), "\n"
                 end
         }
@@ -107,6 +100,10 @@ class NSLBRestHandler
     def call_rest_getlbvstats
         print "get lb vserver stats\n"
         @uri.path = "/nitro/v1/config/lbvserver/"
+        @request = Net::HTTP::Get.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
+
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
 
@@ -120,9 +117,34 @@ class NSLBRestHandler
 
     end
 
-    # create LB objects
+    # create LB objects (this is busy and should be broken up)
     #
     # arguments: 
+    #  # arguments
+    # ssl or nonssl - if ssl is required further setup will be required.
+    #   add ssl cs vserver
+    #   bind cs vserver certkeyName
+    #   bind ssl cipherName
+    # content switching server required? - this one is more complicated as it's shared.
+    # site specific? {wh, lax, iad, ams, syd, nrt}
+    # platform specific? {usa, can, eur, gbr, aus, jpn}
+    # environment {dev, qa, stg, prod}
+    #
+    # order of operations and requirements
+    #
+    # add server FQDN FQDN
+    # add lbvserver NAME (IP address if standalone)
+    # add serviceGroup NAME
+    # add lb monitor NAME ("GET /project/health/up")
+    # add cs policy NAME (STARTSWITH "/project/")
+    # bind serviceGroup NAME SERVER PORT
+    # bind servcieGroup NAME -monitorName NAME
+    # bind cs vserver NAME -policName NAME -targetLBVserver NAME numb++
+    #
+    # error handling
+    # if one of the components fails to create properly then delete the ones we created (stack a hash of success)
+    # there's no need to leave the LB in a weird state
+    # OR perhaps if we just don't save the running config and exit, we're good
     def call_rest_create(type="null")
         print "creating a #{type}..."
         @uri.path = "/nitro/v1/config/lbvserver/"
@@ -209,6 +231,32 @@ class NSLBRestHandler
                 end
         }
                     
+    end
+
+    # called from within only
+    private
+    def call_create_server
+        print "do nuttin"
+    end
+
+    def call_create_lbvserver
+        print "do nuttin"
+    end
+
+    def call_create_csvserver
+        print "do nuttin"
+    end
+
+    def call_create_servicegroup
+        print "do nuttin"
+    end
+
+    def call_create_monitor
+        print "do nuttin"
+    end
+
+    def call_create_cspolicy
+        print "do nuttin"
     end
 
 end
