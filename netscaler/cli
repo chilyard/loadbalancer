@@ -8,10 +8,10 @@ require_relative 'resthandler.rb'
 
 
 # setup the netscaler objects and call the login
-rest = NSLBRestHandler.new("wh")
+rest = NSLBRestHandler.new("wh","","","","","")
 rest.call_rest_login
 
-#rest.call_rest_getlbvstats
+rest.call_rest_getlbvstats
 #rest.call_rest_create("lbvserver")
 
-rest.call_rest_delete
+#rest.call_rest_delete
