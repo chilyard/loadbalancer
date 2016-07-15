@@ -60,23 +60,26 @@ class NSLBRestHandler
     end
 
 
-    # if we don't have credentials supplied by the cli or rundeck, prompt the user
+    # if we don't have credentials supplied by the cli or rundeck, attempt to load from a common
+    # library (RLCredentials).  failing that, prompt the user
     def load_credentials(username, password)
+
         if username.empty? || password.empty?
             # unused feature, for now  
-	        @username, @password = RLCredentials.loadbalancer("lb")
-            print "username: ", @username, "\n"
+	        #@username, @password = RLCredentials.load("lb")
+            print "username: "
+            @username = STDIN.gets.chomp
             print "password: "
             @password = STDIN.noecho(&:gets).chomp
-            print "\n"
-
         else
             print "username and password already set\n"
             print "u: ", username, "\n"
             print "p: ", password, "\n"
         end
+
         # we'll want to test the credentials here by calling the rest_login
         call_rest_login
+
     end
 
 
@@ -93,9 +96,8 @@ class NSLBRestHandler
                 if response.code == "201"
                     print "credential check success!\n"
                 else
-                    print "credential check fail!\n"
-                    print "code: ", response.code.to_i, "\n"
-                    print "body: ", response.body, "\n"
+                    print "credential check failed!\n"
+                    print JSON.parse(response.body), "\n"
                 end
         }
     end 
