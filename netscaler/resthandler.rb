@@ -76,7 +76,7 @@ class NSLBRestHandler
             print "p: ", password, "\n"
         end
         # we'll want to test the credentials here by calling the rest_login
-        # function
+        call_rest_login
     end
 
 
@@ -86,13 +86,7 @@ class NSLBRestHandler
         @uri.path = "/nitro/v1/config/login/"
         @request = Net::HTTP::Post.new(@uri)
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.login+json')
-        @request.body = '{
-            "login": 
-                {
-                "username":"chuck.hilyard",
-                "password":"blahblah"
-                }
-            }'
+        @request.body = { :login => { :username => "#{@username}", :password => "#{@password}" }}.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
