@@ -32,6 +32,7 @@ class NSLBRestHandler
       @service = args[3]
       username = args[4]
       password = args[5]
+      @projectname = args[6]
 
       @lb_host = "lb.#{dc}.reachlocal.com"     
       build_uri
@@ -147,36 +148,9 @@ class NSLBRestHandler
     # OR perhaps if we just don't save the running config and exit, we're good
     def call_rest_create(type="null")
         print "creating a #{type}..."
-        @uri.path = "/nitro/v1/config/lbvserver/"
-        @request = Net::HTTP::Post.new(@uri)
-        @request.basic_auth "#{@username}", "#{@password}"
-        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
-        @request.body = '{
-                "lbvserver":
-                    {
-                    "name":"testlbvserver",
-                    "servicetype":"http",
-                    "ipv46":"0.0.0.0",
-                    "persistencetype":"NONE",
-                    "lbmethod":"LRTM",
-                    "clttimeout":"1800",
-                    "appflowlog":"DISABLED"
-                    }
-        }'
 
-
-        Net::HTTP.start(@uri.host, @uri.port) { |http|
-            response = http.request(@request)
-                if response.code == "201"
-                    print "success!\n"
-                    call_rest_saveconfig
-                else
-                    print "fail!\n"
-                    print "code: ", response.code.to_i, "\n"
-                    print "body: ", response.body, "\n"
-                end
-        }
-                
+        # save the configs if there were no errors
+        call_rest_saveconfig
     end
  
 
@@ -233,14 +207,36 @@ class NSLBRestHandler
                     
     end
 
-    # called from within only
+
     private
     def call_create_server
         print "do nuttin"
     end
 
-    def call_create_lbvserver
-        print "do nuttin"
+    def call_create_lbvserver(ipaddress="0.0.0.0", args = {})
+        # hard coded for testing
+        name = vs-"#{@projectname}"-usa-qa-wh
+        # hard coded for testing
+        ipaddress = "10.126.255.53"
+        # hard coded for testing
+        servicetype = "HTTP"
+        @uri.path = "/nitro/v1/config/lbvserver/"
+        @request = Net::HTTP::Post.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
+        # add lb vserver qvs-wh-nx1-jpn-yjpconnector HTTP 0.0.0.0 0 -persistenceType COOKIEINSERT -timeout 15 -lbMethod LRTM -cltTimeout 3600 -appflowLog DISABLED
+        @request.body = { :lbvserver => { :name => "#{@projectname}", :servicetype => "#{servicetype}", :ipv46 => "#{ipaddress}", :persistencetype => "NONE", :lbmethod => "LRTM", :cltimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
+
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "201"
+                    print "success!\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+        }
     end
 
     def call_create_csvserver

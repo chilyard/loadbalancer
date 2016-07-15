@@ -8,7 +8,7 @@ require_relative 'resthandler.rb'
 
 
 # initiate the netscaler objects and call the login
-rest = NSLBRestHandler.new("wh","dev","","","chuck.hilyard","")
+rest = NSLBRestHandler.new("wh","dev","","","chuck.hilyard","","rundeckdemo")
 
 rest.call_rest_getlbvstats
 #rest.call_rest_delete
