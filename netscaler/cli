@@ -10,8 +10,15 @@ require_relative 'resthandler.rb'
 # initiate the netscaler objects and call the login
 rest = NSLBRestHandler.new("wh","dev","","","chuck.hilyard","","rundeckdemo")
 
-rest.call_rest_getlbvstats
+
+
+
+#rest.call_rest_getlbvstats
 #rest.call_rest_delete
+
+
+
+
 
 # create a LB object
 #
@@ -35,4 +42,4 @@ rest.call_rest_getlbvstats
 # bind serviceGroup NAME SERVER PORT
 # bind servcieGroup NAME -monitorName NAME
 # bind cs vserver NAME -policName NAME -targetLBVserver NAME numb++
-#rest.call_rest_create("nonssl","no","wh","usa","dev")
+rest.call_rest_create("nonssl","no","wh","usa","dev")

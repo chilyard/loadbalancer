@@ -146,11 +146,14 @@ class NSLBRestHandler
     # if one of the components fails to create properly then delete the ones we created (stack a hash of success)
     # there's no need to leave the LB in a weird state
     # OR perhaps if we just don't save the running config and exit, we're good
-    def call_rest_create(type="null")
-        print "creating a #{type}..."
+    def call_rest_create(*args)
+
+        print "creating a lbvserver..."
+        call_create_lbvserver
 
         # save the configs if there were no errors
-        call_rest_saveconfig
+        # enable this when we're ready to actually save the config
+        #call_rest_saveconfig
     end
  
 
@@ -215,9 +218,11 @@ class NSLBRestHandler
 
     def call_create_lbvserver(ipaddress="0.0.0.0", args = {})
         # hard coded for testing
-        name = vs-"#{@projectname}"-usa-qa-wh
+        @projectname = "vs-rundeckdemo-usa-qa-wh"
         # hard coded for testing
         ipaddress = "10.126.255.53"
+        # hard coded for testing
+        port = "80"
         # hard coded for testing
         servicetype = "HTTP"
         @uri.path = "/nitro/v1/config/lbvserver/"
@@ -225,7 +230,7 @@ class NSLBRestHandler
         @request.basic_auth "#{@username}", "#{@password}"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
         # add lb vserver qvs-wh-nx1-jpn-yjpconnector HTTP 0.0.0.0 0 -persistenceType COOKIEINSERT -timeout 15 -lbMethod LRTM -cltTimeout 3600 -appflowLog DISABLED
-        @request.body = { :lbvserver => { :name => "#{@projectname}", :servicetype => "#{servicetype}", :ipv46 => "#{ipaddress}", :persistencetype => "NONE", :lbmethod => "LRTM", :cltimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
+        @request.body = { :lbvserver => { :name => "#{@projectname}", :servicetype => "#{servicetype}", :ipv46 => "#{ipaddress}", :port => "#{port}", :persistencetype => "COOKIEINSERT", :timeout => "15", :lbmethod => "LRTM", :cltTimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
