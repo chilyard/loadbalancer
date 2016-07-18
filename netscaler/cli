@@ -8,15 +8,17 @@ require_relative 'resthandler.rb'
 
 
 # initiate the netscaler objects and call the login
-rest = NSLBRestHandler.new("wh","dev","","","chuck.hilyard","","rundeckdemo")
-
-
-
+## @datacenter = args[0]     # this is the datacenter location, may be lax, iad, syd, nrt, ams
+## @environment = args[1]    # this is the environment, may be dev, qa, stg, prod
+## @platform = args[2]       # this is the platform, may be; aus, can, jpn, eur, gbr, usa
+## @servicename = args[3]    # this is the service nice name, like "yjpconnector"
+## @nettype = args[4]        # this is where node will live in openstack (Web or App)
+## @action = args[5]         # either "create" or "delete" - user must supply
+## username = args[6]
+## password = args[7]
+rest = NSLBRestHandler.new("wh","dev","usa","rundeckdemo","web","create","chuck.hilyard","")
 
 #rest.call_rest_getlbvstats
-#rest.call_rest_delete
-
-
 
 
 
@@ -42,4 +44,6 @@ rest = NSLBRestHandler.new("wh","dev","","","chuck.hilyard","","rundeckdemo")
 # bind serviceGroup NAME SERVER PORT
 # bind servcieGroup NAME -monitorName NAME
 # bind cs vserver NAME -policName NAME -targetLBVserver NAME numb++
-rest.call_rest_create("nonssl","no","wh","usa","dev")
+
+#rest.call_rest_create("nonssl","no","wh","usa","dev")
+

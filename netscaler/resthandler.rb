@@ -13,30 +13,52 @@ include RLCredentials
 
 class NSLBRestHandler
 
-    attr_reader :dc
+    attr_reader :datacenter
 
-    # required args: 
-    # dc - caller must pass the datacenter {wh, lax, iad, nrt, syd, ams}
-    # env - caller must pass sdlc environment {dev, qa, stg, prod}
-    # country - caller must pass country {usa, can, aus, jpn, gbr, eur}
-    # service - caller must pass the service "nice name," i.e. "yjpconnector" 
+    # required args: (these configs should be puppetized) 
+    # datacenter - caller must pass the datacenter {wh, lax, iad, nrt, syd, ams}
+    # environment - caller must pass sdlc environment {dev, qa, stg, prod}
+    # platform - caller must pass platform {usa, can, aus, jpn, gbr, eur}
+    # servicename - caller must pass the service "nice name," i.e. "yjpconnector" 
     #
     # optional args:
     # username - this may come from the calling source, like rundeck.  or we could prompt the user
     # password - this may come from the calling source, like rundeck.  or we could prompt the user
     def initialize(*args)
       print "initializing NSLBRestHandler\n"
-      @dc = args[0]
-      @env = args[1]
-      @country = args[2]
-      @service = args[3]
-      username = args[4]
-      password = args[5]
-      @projectname = args[6]
+      @datacenter = args[0]     # this is the datacenter location, may be lax, iad, syd, nrt, ams
+      @environment = args[1]    # this is the environment, may be dev, qa, stg, prod
+      @platform = args[2]       # this is the platform, may be; aus, can, jpn, eur, gbr, usa
+      @servicename = args[3]    # this is the service nice name, like "yjpconnector"
+      @nettype = args[4]        # this is where node will live in openstack (Web or App)
+      @action = args[5]         # either "create" or "delete" - user must supply
+      username = args[6]
+      password = args[7]
 
-      @lb_host = "lb.#{dc}.reachlocal.com"     
+      # create a status hash.  we'll track what we've built in the hash.
+      # if we fail on anything we'll source the hash for undoing what we've done.
+      # additionaly, as an example, we can use the hash to bind the nodes we created to the servicegroup
+      # that was created
+      status_hash = {}
+      @server_array = []
+
+      @lb_host = "lb.#{datacenter}.reachlocal.com"     
       build_uri
       load_credentials(username, password)
+
+      case @action
+            when "create"
+                call_create_server
+                call_create_servicegroup
+                call_create_lbvserver
+                #call_bind_server_to_lbvserver
+                print "server_array count: ", @server_array.count, "\n"
+            when "delete"
+                print "deleting stuff"
+            else
+                print "din do nuthin"
+            end
+
     end
 
     # build a basic uri object.  update the path local to the function for
@@ -55,7 +77,8 @@ class NSLBRestHandler
 
 
     # if we don't have credentials supplied by the cli or rundeck, attempt to load from a common
-    # library (RLCredentials).  failing that, prompt the user
+    # library (RLCredentials).  failing that, prompt the user.  this will eventually be built into
+    # the framework, elsewhere
     def load_credentials(username, password)
 
         if username.empty? || password.empty?
@@ -79,7 +102,7 @@ class NSLBRestHandler
 
     # login to the LB
     def call_rest_login
-        print "checking credentials..." 
+        print "verifying credentials..." 
         @uri.path = "/nitro/v1/config/login/"
         @request = Net::HTTP::Post.new(@uri)
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.login+json')
@@ -92,6 +115,7 @@ class NSLBRestHandler
                 else
                     print "fail!\n"
                     print JSON.parse(response.body), "\n"
+                    abort()
                 end
         }
     end 
@@ -100,17 +124,17 @@ class NSLBRestHandler
     # get a list of lb vservers
     def call_rest_getlbvstats
         print "get lb vserver stats\n"
-        @uri.path = "/nitro/v1/config/lbvserver/"
+        @uri.path = "/nitro/v1/config/servicegroup/"
         @request = Net::HTTP::Get.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
-        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup+json')
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
 
             if response.code == "200"
                 result = JSON.parse(response.body)
-                File.open("lb.#{dc}-lbvserver-stats.json", "w") do |file|
+                File.open("servicegroup-stats.json", "w") do |file|
                     file.write(JSON.pretty_generate(result))
                 end
             end
@@ -148,12 +172,13 @@ class NSLBRestHandler
     # OR perhaps if we just don't save the running config and exit, we're good
     def call_rest_create(*args)
 
-        print "creating a lbvserver..."
-        call_create_lbvserver
+        print "creating LB objects..."
+        #call_create_lbvserver
+        call_create_servicegroup
 
         # save the configs if there were no errors
         # enable this when we're ready to actually save the config
-        #call_rest_saveconfig
+        call_rest_saveconfig
     end
  
 
@@ -211,26 +236,90 @@ class NSLBRestHandler
     end
 
 
-    private
-    def call_create_server
-        print "do nuttin"
+    # here we add the node entries to the LB
+    #
+    # a server entry is comprised of the following variables
+    # $servicename-$platform-$nettype{$quantity}.$environment.$datacenter.reachlocal.com
+    #
+    # get the quantity of nodes from the user and increment, beginning at 01.  the NS rest interface
+    # will spit back a "record exists" message.  if that happens we must cease operation as we could inadvertently
+    # bind to an existing service, which may not be desired
+    #
+    # we'll default to a quantity of 2 nodes
+    def call_create_server(quantity = 2)
+       abort("you either passed a zero quantity of servers or way too many, default is 2") if quantity == 0 || quantity >= 10
+  
+       1.upto(quantity) { |x|  
+            serverfqdn = "#{@servicename}-#{@platform}-#{@nettype}0#{x}.#{@environment}.#{@datacenter}.reachlocal.com"
+            @uri.path = "/nitro/v1/config/server/"
+            @uri.query = "action=add"
+            @request = Net::HTTP::Post.new(@uri)
+            @request.basic_auth "#{@username}", "#{@password}"
+            @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.server+json')
+            @request.body = { :server => { :name => "#{serverfqdn}", :domain => "#{serverfqdn}" } }.to_json 
+
+            Net::HTTP.start(@uri.host, @uri.port) { |http|
+                response = http.request(@request)
+                    if response.code == "201"
+                        print "success!\n"
+                        # add this server to the array
+                        @server_array.push("serverfqdn")
+                    else
+                        print "fail!\n"
+                        print "code: ", response.code.to_i, "\n"
+                        print "body: ", response.body, "\n"
+                    end
+            }
+        }
     end
 
+    def call_create_servicegroup
+        # example: add serviceGroup qsg-wh-nx1-usa-geminishim-http HTTP -maxClient 0 -maxReq 0 -cip ENABLED RL-SRC-IP -usip NO -useproxyport YES -cltTimeout 3600 
+        # -svrTimeout 3600 -CKA NO -TCPB YES -CMP NO -appflowLog DISABLED
+        print "creating servicegroup\n"
+        sgservice_name = "sg-#{@servicename}-usa-qa-wh"
+        sg_type = "HTTP"
+        sg_state = "ENABLED"
+        clttimeout = "3600"
+        svrtimeout = "3600"
+        appflowlog = "DISABLED"
+        cip = "ENABLED"
+        cipheader = "ENABLED RL-SRC-IP"
+        @uri.path = "/nitro/v1/config/servicegroup/"
+        @uri.query = "action=add"
+        @request = Net::HTTP::Post.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup+json')
+        @request.body = { :servicegroup => { :servicegroupname => "#{sgservice_name}", :servicetype => "#{sg_type}", :state => "#{sg_state}", :cltTimeout => "#{clttimeout}", :svrtimeout => "#{svrtimeout}", :appflowlog => "#{appflowlog}" } }.to_json 
+
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "201"
+                    print "success!\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+        }
+
+    end
+
+    # here we add lb vservers.  the basic load balancing server in the netscaler.  this may be standalone (which requires)
+    # an ipaddress (ipv46) be supplied or bound to a "cs vserver"
     def call_create_lbvserver(ipaddress="0.0.0.0", args = {})
-        # hard coded for testing
-        @projectname = "vs-rundeckdemo-usa-qa-wh"
+        lbvserver_name = "vs-#{@servicename}-usa-qa-wh"
         # hard coded for testing
         ipaddress = "10.126.255.53"
         # hard coded for testing
         port = "80"
         # hard coded for testing
-        servicetype = "HTTP"
+        http_or_ssl = "HTTP"
         @uri.path = "/nitro/v1/config/lbvserver/"
         @request = Net::HTTP::Post.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
-        # add lb vserver qvs-wh-nx1-jpn-yjpconnector HTTP 0.0.0.0 0 -persistenceType COOKIEINSERT -timeout 15 -lbMethod LRTM -cltTimeout 3600 -appflowLog DISABLED
-        @request.body = { :lbvserver => { :name => "#{@projectname}", :servicetype => "#{servicetype}", :ipv46 => "#{ipaddress}", :port => "#{port}", :persistencetype => "COOKIEINSERT", :timeout => "15", :lbmethod => "LRTM", :cltTimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
+        @request.body = { :lbvserver => { :name => "#{lbvserver_name}", :servicetype => "#{http_or_ssl}", :ipv46 => "#{ipaddress}", :port => "#{port}", :persistencetype => "COOKIEINSERT", :timeout => "15", :lbmethod => "LRTM", :cltTimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
@@ -248,10 +337,6 @@ class NSLBRestHandler
         print "do nuttin"
     end
 
-    def call_create_servicegroup
-        print "do nuttin"
-    end
-
     def call_create_monitor
         print "do nuttin"
     end
@@ -259,5 +344,22 @@ class NSLBRestHandler
     def call_create_cspolicy
         print "do nuttin"
     end
+
+    # generic binding function.  pass two objects 
+    # return success or fail
+    def call_bind_objects(bindthis, bindthat)
+        print "binding generic objects" 
+    end
+
+    def call_bind_server_to_lbvserver
+        print "add servers to lbvserver"
+    end
+
+    # generic UNBIND function.  pass two objects to unbind (order is important)
+    # return success or fail
+    def call_unbind_objects
+        print "do nuttin"
+    end
+
 
 end
