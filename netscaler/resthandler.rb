@@ -39,7 +39,7 @@ class NSLBRestHandler
       # if we fail on anything we'll source the hash for undoing what we've done.
       # additionaly, as an example, we can use the hash to bind the nodes we created to the servicegroup
       # that was created
-      status_hash = {}
+      @status_hash = {}
       @server_array = []
 
       @lb_host = "lb.#{datacenter}.reachlocal.com"     
@@ -48,15 +48,15 @@ class NSLBRestHandler
 
       case @action
             when "create"
-                call_create_server
-                call_create_servicegroup
-                call_create_lbvserver
-                #call_bind_server_to_lbvserver
+                #call_create_server
+                #call_create_servicegroup
+                #call_create_lbvserver
+                call_bind_objects
                 print "server_array count: ", @server_array.count, "\n"
             when "delete"
                 print "deleting stuff"
             else
-                print "din do nuthin"
+                print "din do nuffin"
             end
 
     end
@@ -106,7 +106,7 @@ class NSLBRestHandler
         @uri.path = "/nitro/v1/config/login/"
         @request = Net::HTTP::Post.new(@uri)
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.login+json')
-        @request.body = { :login => { :username => "#{@username}", :password => "#{@password}" }}.to_json 
+        @request.body = { :login => { :username => "#{@username}", :password => "#{@password}" } }.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
@@ -124,17 +124,17 @@ class NSLBRestHandler
     # get a list of lb vservers
     def call_rest_getlbvstats
         print "get lb vserver stats\n"
-        @uri.path = "/nitro/v1/config/servicegroup/"
+        @uri.path = "/nitro/v1/config/lbvserver/"
         @request = Net::HTTP::Get.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
-        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup+json')
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
 
             if response.code == "200"
                 result = JSON.parse(response.body)
-                File.open("servicegroup-stats.json", "w") do |file|
+                File.open("lbvserver-stats.json", "w") do |file|
                     file.write(JSON.pretty_generate(result))
                 end
             end
@@ -296,6 +296,7 @@ class NSLBRestHandler
             response = http.request(@request)
                 if response.code == "201"
                     print "success!\n"
+                    @status_hash[:servicegroup] = "sgservice_name"
                 else
                     print "fail!\n"
                     print "code: ", response.code.to_i, "\n"
@@ -325,6 +326,7 @@ class NSLBRestHandler
             response = http.request(@request)
                 if response.code == "201"
                     print "success!\n"
+                    @status_hash[:lbvserver] = "lbvserver_name"
                 else
                     print "fail!\n"
                     print "code: ", response.code.to_i, "\n"
@@ -347,12 +349,26 @@ class NSLBRestHandler
 
     # generic binding function.  pass two objects 
     # return success or fail
-    def call_bind_objects(bindthis, bindthat)
-        print "binding generic objects" 
-    end
+    def call_bind_objects
+        print "binding objects\n" 
+        @uri.path = "/nitro/v1/config/servicegroup_servicegroupmember_binding/sg-rundeckdemo-usa-qa-wh" 
+        @uri.query = "action=bind"
+        @request = Net::HTTP::Post.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup_servicegroupmember_binding+json')
+        #@request.body = { :servicegroup_servicegroupmember_binding => { :servername => "#{@server_array[0]}", :port => "80" } }.to_json 
+        @request.body = { :servicegroup_servicegroupmember_binding => { :servicegroupname => "sg-rundeckdemo-usa-qa-wh", :servername => "rundeckdemo-usa-web01.dev.wh.reachlocal.com", :port => "80" } }.to_json 
 
-    def call_bind_server_to_lbvserver
-        print "add servers to lbvserver"
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "201"
+                    print "success!\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+        }
     end
 
     # generic UNBIND function.  pass two objects to unbind (order is important)
