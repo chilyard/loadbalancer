@@ -40,19 +40,23 @@ class NSLBRestHandler
       # additionaly, as an example, we can use the hash to bind the nodes we created to the servicegroup
       # that was created
       @status_hash = {}
+      # server_array contains the FQDN nodes we added to the loadbalancer.  it's used here in case we need to 
+      # delete them due to failure or if we need this info for use in construction of other LB objects
       @server_array = []
 
-      @lb_host = "lb.#{datacenter}.reachlocal.com"     
+      # construct a basic uri object, gets updated during different calls (in respective functions) to the NS REST interface
       build_uri
+
+      # we'll check the framework to see if credentials were supplied.  we'll also check
+      # for credentials supplied from the cli.  if all else fails, request credentials from the user
       load_credentials(username, password)
 
       case @action
             when "create"
-                #call_create_server
-                #call_create_servicegroup
-                #call_create_lbvserver
+                call_create_server
+                call_create_servicegroup
+                call_create_lbvserver
                 call_bind_objects
-                print "server_array count: ", @server_array.count, "\n"
             when "delete"
                 print "deleting stuff"
             else
@@ -66,7 +70,7 @@ class NSLBRestHandler
     def build_uri
         print "building uri object..."
         @uri = URI::HTTP.build({
-            :host       => "#{@lb_host}",
+            :host       => "lb.#{@datacenter}.reachlocal.com",
             :path       => "",
             :port       => "",
             :scheme     => "http",
@@ -102,7 +106,7 @@ class NSLBRestHandler
 
     # login to the LB
     def call_rest_login
-        print "verifying credentials..." 
+        print "validating credentials..." 
         @uri.path = "/nitro/v1/config/login/"
         @request = Net::HTTP::Post.new(@uri)
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.login+json')
@@ -163,7 +167,7 @@ class NSLBRestHandler
     # add lb monitor NAME ("GET /project/health/up")
     # add cs policy NAME (STARTSWITH "/project/")
     # bind serviceGroup NAME SERVER PORT
-    # bind servcieGroup NAME -monitorName NAME
+    # bind serviceGroup NAME -monitorName NAME
     # bind cs vserver NAME -policName NAME -targetLBVserver NAME numb++
     #
     # error handling
@@ -209,7 +213,7 @@ class NSLBRestHandler
 
     # delete LB objects
     def call_rest_delete
-        print "deleting a LB object"
+        print "deleting a LB object..."
             @uri.path = "/nitro/v1/config/lbvserver/testlbvserver"
             @request = Net::HTTP::Delete.new(@uri)
             @request.basic_auth "#{@username}", "#{@password}"
@@ -238,7 +242,7 @@ class NSLBRestHandler
 
     # here we add the node entries to the LB
     #
-    # a server entry is comprised of the following variables
+    # a server name is comprised of the following variables
     # $servicename-$platform-$nettype{$quantity}.$environment.$datacenter.reachlocal.com
     #
     # get the quantity of nodes from the user and increment, beginning at 01.  the NS rest interface
@@ -247,9 +251,10 @@ class NSLBRestHandler
     #
     # we'll default to a quantity of 2 nodes
     def call_create_server(quantity = 2)
-       abort("you either passed a zero quantity of servers or way too many, default is 2") if quantity == 0 || quantity >= 10
+       abort("you either passed a zero quantity of servers or way too many, default is 2") if quantity == 0 || quantity >= 6
   
        1.upto(quantity) { |x|  
+            print "adding server..."
             serverfqdn = "#{@servicename}-#{@platform}-#{@nettype}0#{x}.#{@environment}.#{@datacenter}.reachlocal.com"
             @uri.path = "/nitro/v1/config/server/"
             @uri.query = "action=add"
@@ -263,7 +268,7 @@ class NSLBRestHandler
                     if response.code == "201"
                         print "success!\n"
                         # add this server to the array
-                        @server_array.push("serverfqdn")
+                        @server_array.push(serverfqdn)
                     else
                         print "fail!\n"
                         print "code: ", response.code.to_i, "\n"
@@ -276,8 +281,8 @@ class NSLBRestHandler
     def call_create_servicegroup
         # example: add serviceGroup qsg-wh-nx1-usa-geminishim-http HTTP -maxClient 0 -maxReq 0 -cip ENABLED RL-SRC-IP -usip NO -useproxyport YES -cltTimeout 3600 
         # -svrTimeout 3600 -CKA NO -TCPB YES -CMP NO -appflowLog DISABLED
-        print "creating servicegroup\n"
-        sgservice_name = "sg-#{@servicename}-usa-qa-wh"
+        print "creating servicegroup..."
+        @sgservice_name = "sg-#{@servicename}-usa-qa-wh"
         sg_type = "HTTP"
         sg_state = "ENABLED"
         clttimeout = "3600"
@@ -290,13 +295,13 @@ class NSLBRestHandler
         @request = Net::HTTP::Post.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup+json')
-        @request.body = { :servicegroup => { :servicegroupname => "#{sgservice_name}", :servicetype => "#{sg_type}", :state => "#{sg_state}", :cltTimeout => "#{clttimeout}", :svrtimeout => "#{svrtimeout}", :appflowlog => "#{appflowlog}" } }.to_json 
+        @request.body = { :servicegroup => { :servicegroupname => "#{@sgservice_name}", :servicetype => "#{sg_type}", :state => "#{sg_state}", :cltTimeout => "#{clttimeout}", :svrtimeout => "#{svrtimeout}", :appflowlog => "#{appflowlog}" } }.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
                 if response.code == "201"
                     print "success!\n"
-                    @status_hash[:servicegroup] = "sgservice_name"
+                    @status_hash[:servicegroup] = "#{@sgservice_name}"
                 else
                     print "fail!\n"
                     print "code: ", response.code.to_i, "\n"
@@ -309,7 +314,8 @@ class NSLBRestHandler
     # here we add lb vservers.  the basic load balancing server in the netscaler.  this may be standalone (which requires)
     # an ipaddress (ipv46) be supplied or bound to a "cs vserver"
     def call_create_lbvserver(ipaddress="0.0.0.0", args = {})
-        lbvserver_name = "vs-#{@servicename}-usa-qa-wh"
+        print "adding lb vserver..."
+        @lbvserver_name = "vs-#{@servicename}-usa-qa-wh"
         # hard coded for testing
         ipaddress = "10.126.255.53"
         # hard coded for testing
@@ -320,13 +326,13 @@ class NSLBRestHandler
         @request = Net::HTTP::Post.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver+json')
-        @request.body = { :lbvserver => { :name => "#{lbvserver_name}", :servicetype => "#{http_or_ssl}", :ipv46 => "#{ipaddress}", :port => "#{port}", :persistencetype => "COOKIEINSERT", :timeout => "15", :lbmethod => "LRTM", :cltTimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
+        @request.body = { :lbvserver => { :name => "#{@lbvserver_name}", :servicetype => "#{http_or_ssl}", :ipv46 => "#{ipaddress}", :port => "#{port}", :persistencetype => "COOKIEINSERT", :timeout => "15", :lbmethod => "LRTM", :cltTimeout => "1800", :appflowlog => "DISABLED" } }.to_json 
 
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
                 if response.code == "201"
                     print "success!\n"
-                    @status_hash[:lbvserver] = "lbvserver_name"
+                    @status_hash[:lbvserver] = "@lbvserver_name"
                 else
                     print "fail!\n"
                     print "code: ", response.code.to_i, "\n"
@@ -350,15 +356,18 @@ class NSLBRestHandler
     # generic binding function.  pass two objects 
     # return success or fail
     def call_bind_objects
-        print "binding objects\n" 
-        @uri.path = "/nitro/v1/config/servicegroup_servicegroupmember_binding/sg-rundeckdemo-usa-qa-wh" 
+
+
+        ### this is the server to servicegroup binding...no, it doesn't belong here
+        @server_array.each { |x|  
+        print "binding #{x} to the servicegroup..." 
+        @uri.path = "/nitro/v1/config/servicegroup_servicegroupmember_binding/#{@sgservice_name}" 
         @uri.query = "action=bind"
         @request = Net::HTTP::Post.new(@uri)
         @request.basic_auth "#{@username}", "#{@password}"
         @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.servicegroup_servicegroupmember_binding+json')
-        #@request.body = { :servicegroup_servicegroupmember_binding => { :servername => "#{@server_array[0]}", :port => "80" } }.to_json 
-        @request.body = { :servicegroup_servicegroupmember_binding => { :servicegroupname => "sg-rundeckdemo-usa-qa-wh", :servername => "rundeckdemo-usa-web01.dev.wh.reachlocal.com", :port => "80" } }.to_json 
-
+        @request.body = { :servicegroup_servicegroupmember_binding => { :servicegroupname => "#{@sgservice_name}", :servername => "#{x}", :port => "8080" } }.to_json 
+        
         Net::HTTP.start(@uri.host, @uri.port) { |http|
             response = http.request(@request)
                 if response.code == "201"
@@ -368,7 +377,30 @@ class NSLBRestHandler
                     print "code: ", response.code.to_i, "\n"
                     print "body: ", response.body, "\n"
                 end
+            }
         }
+
+
+        ### this is the servicegroup to lbvserver binding, doesn't belong here
+        print "binding #{@sgservice_name} to #{@lbvserver_name}..."
+        @uri.path = "/nitro/v1/config/lbvserver_service_binding" 
+        @uri.query = "action=bind"
+        @request = Net::HTTP::Post.new(@uri)
+        @request.basic_auth "#{@username}", "#{@password}"
+        @request.add_field('Content-Type', 'application/vnd.com.citrix.netscaler.lbvserver_service_binding+json')
+        @request.body = { :lbvserver_service_binding => { :name => "#{@lbvserver_name}", :servicename => "#{@sgservice_name}" } }.to_json 
+        
+        Net::HTTP.start(@uri.host, @uri.port) { |http|
+            response = http.request(@request)
+                if response.code == "201"
+                    print "success!\n"
+                else
+                    print "fail!\n"
+                    print "code: ", response.code.to_i, "\n"
+                    print "body: ", response.body, "\n"
+                end
+            }
+
     end
 
     # generic UNBIND function.  pass two objects to unbind (order is important)
